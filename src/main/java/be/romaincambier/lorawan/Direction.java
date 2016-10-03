@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 cambierr.
+ * Copyright 2016 Romain Cambier <me@romaincambier.be>.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,36 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.github.cambierr.lorawanpacket.semtech;
-
-import java.nio.ByteBuffer;
+package be.romaincambier.lorawan;
 
 /**
  *
  * @author cambierr
  */
-public class PushAck extends SemtechPacket{
-    
-    public PushAck(byte[] _randoms, ByteBuffer _raw) {
-        super(_randoms, PacketType.PUSH_ACK);
+public enum Direction {
+
+    DOWN(1),
+    UP(0);
+
+    private final byte value;
+
+    private Direction(int _i) {
+        value = (byte) _i;
     }
-    
-    private PushAck(byte[] _randoms) {
-        super(_randoms, PacketType.PUSH_ACK);
+
+    public byte value() {
+        return value;
     }
-    
-    public static class Builder{
-        
-        private final PushAck instance;
-        
-        public Builder(byte[] _randoms){
-            instance = new PushAck(_randoms);
-        }
-        
-        public PushAck build(){
-            return instance;
-        }
-        
-    }
-    
 }

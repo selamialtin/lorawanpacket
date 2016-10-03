@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 cambierr.
+ * Copyright 2016 Romain Cambier <me@romaincambier.be>.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,8 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.github.cambierr.lorawanpacket.lorawan;
+package be.romaincambier.lorawan;
 
+import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.InvalidAlgorithmParameterException;
@@ -40,29 +41,23 @@ import javax.crypto.spec.SecretKeySpec;
  *
  * @author cambierr
  */
-public class DataPayload implements FRMPayload {
+public class DataPayload implements FRMPayload, Binarizable {
 
-    private MacPayload mac;
-    private byte[] payload;
+    private final MacPayload mac;
+    private final byte[] payload;
 
-    private byte[] nwkSKey;
-    private byte[] appSKey;
-
-    public DataPayload(MacPayload _mac, ByteBuffer _raw) {
+    protected DataPayload(MacPayload _mac, ByteBuffer _raw) {
         mac = _mac;
-        _raw.order(ByteOrder.LITTLE_ENDIAN);
         payload = new byte[_raw.remaining() - 4];
         _raw.get(payload);
     }
 
-    public DataPayload(MacPayload _mac) {
-        mac = _mac;
-        mac.setPayload(this);
-    }
-
-    public byte[] computeMic() throws MalformedPacketException {
-        if (nwkSKey == null) {
-            throw new RuntimeException("undefined nwkSKey");
+    public byte[] computeMic(byte[] _nwkSKey) throws MalformedPacketException {
+        if (_nwkSKey == null) {
+            throw new IllegalArgumentException("Missing nwkSKey");
+        }
+        if (_nwkSKey.length != 16) {
+            throw new IllegalArgumentException("Invalid nwkSKey");
         }
         //size = mhdr + MacPayload + 16 (B0)
         ByteBuffer body = ByteBuffer.allocate(1 + mac.length() + 16);
@@ -77,12 +72,12 @@ public class DataPayload implements FRMPayload {
         body.put((byte) (1 + mac.length()));
 
         body.put(mac.getPhyPayload().getMHDR());
-        mac.toRaw(body);
+        mac.binarize(body);
 
         AesCmac aesCmac;
         try {
             aesCmac = new AesCmac();
-            aesCmac.init(new SecretKeySpec(nwkSKey, "AES"));
+            aesCmac.init(new SecretKeySpec(_nwkSKey, "AES"));
             aesCmac.updateBlock(body.array());
             return Arrays.copyOfRange(aesCmac.doFinal(), 0, 4);
         } catch (NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException ex) {
@@ -91,28 +86,29 @@ public class DataPayload implements FRMPayload {
     }
 
     @Override
-    public int length() {
-        return payload.length;
-    }
-
-    @Override
-    public void toRaw(ByteBuffer _bb) {
+    public void binarize(ByteBuffer _bb) {
         _bb.order(ByteOrder.LITTLE_ENDIAN);
         _bb.put(payload);
     }
 
-    public byte[] getClearPayLoad() throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
+    public byte[] getClearPayLoad(byte[] _nwkSKey, byte[] _appSKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
         byte[] key;
         if (mac.getfPort() == 0) {
-            if (nwkSKey == null) {
-                throw new RuntimeException("undefined nwkSKey");
+            if (_nwkSKey == null) {
+                throw new IllegalArgumentException("Missing nwkSKey");
             }
-            key = nwkSKey;
+            if (_nwkSKey.length != 16) {
+                throw new IllegalArgumentException("Invalid nwkSKey");
+            }
+            key = _nwkSKey;
         } else {
-            if (appSKey == null) {
-                throw new RuntimeException("undefined appSKey");
+            if (_appSKey == null) {
+                throw new IllegalArgumentException("Missing appSKey");
             }
-            key = appSKey;
+            if (_appSKey.length != 16) {
+                throw new IllegalArgumentException("Invalid appSKey");
+            }
+            key = _appSKey;
         }
         int k = (int) Math.ceil(payload.length / 16.0);
         ByteBuffer a = ByteBuffer.allocate(16 * k);
@@ -139,83 +135,17 @@ public class DataPayload implements FRMPayload {
         return plainPayload;
     }
 
-    public DataPayload setClearPayLoad(byte[] _data) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
-        byte[] key;
-        if (mac.getfPort() == 0) {
-            if (nwkSKey == null) {
-                throw new RuntimeException("undefined nwkSKey");
-            }
-            key = nwkSKey;
-        } else {
-            if (appSKey == null) {
-                throw new RuntimeException("undefined appSKey");
-            }
-            key = appSKey;
-        }
-        int k = (int) Math.ceil(_data.length / 16.0);
-        ByteBuffer a = ByteBuffer.allocate(16 * k);
-        a.order(ByteOrder.LITTLE_ENDIAN);
-        for (int i = 1; i <= k; i++) {
-            a.put((byte) 0x01);
-            a.put(new byte[]{0x00, 0x00, 0x00, 0x00});
-            a.put(mac.getPhyPayload().getMType().getDirection().value());
-            a.put(mac.getFhdr().getDevAddr());
-            a.putInt(mac.getFhdr().getfCnt());
-            a.put((byte) 0x00);
-            a.put((byte) i);
-        }
-        Key aesKey = new SecretKeySpec(key, "AES");
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.ENCRYPT_MODE, aesKey);
-        byte[] s = cipher.doFinal(a.array());
-        byte[] paddedPayload = new byte[16 * k];
-        System.arraycopy(_data, 0, paddedPayload, 0, _data.length);
-        payload = new byte[_data.length];
-        for (int i = 0; i < _data.length; i++) {
-            payload[i] = (byte) (s[i] ^ paddedPayload[i]);
-        }
-        return this;
-    }
-
     public MacPayload getMac() {
         return mac;
-    }
-
-    public DataPayload setMac(MacPayload _mac) {
-        this.mac = _mac;
-        return this;
     }
 
     public byte[] getPayload() {
         return payload;
     }
 
-    public DataPayload setPayload(byte[] _payload) {
-        this.payload = _payload;
-        return this;
-    }
-
     @Override
-    public boolean validateMic() throws MalformedPacketException {
-        return Arrays.equals(computeMic(), mac.getPhyPayload().getMic());
-    }
-
-    public DataPayload setNwkSKey(byte[] _nwkSKey) {
-        nwkSKey = _nwkSKey;
-        return this;
-    }
-
-    public byte[] getNwkSKey() {
-        return nwkSKey;
-    }
-
-    public DataPayload setAppSKey(byte[] _appSKey) {
-        appSKey = _appSKey;
-        return this;
-    }
-
-    public byte[] getAppSKey() {
-        return appSKey;
+    public int length() {
+        return payload.length;
     }
 
 }

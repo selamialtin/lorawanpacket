@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 cambierr.
+ * Copyright 2016 Romain Cambier <me@romaincambier.be>.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,8 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.github.cambierr.lorawanpacket.lorawan;
+package be.romaincambier.lorawan;
 
+import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.InvalidAlgorithmParameterException;
@@ -37,43 +38,39 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class JoinRequestPayload implements FRMPayload {
 
-    private MacPayload mac;
-    private byte[] appEUI = new byte[8];
-    private byte[] devEUI = new byte[8];
-    private byte[] devNonce = new byte[2];
+    private final MacPayload mac;
+    private final byte[] appEUI = new byte[8];
+    private final byte[] devEUI = new byte[8];
+    private final byte[] devNonce = new byte[2];
 
-    private byte[] appKey;
-
-    public JoinRequestPayload(MacPayload _mac, ByteBuffer _raw) throws MalformedPacketException {
-        if (_raw.remaining() < 22) {
-            throw new MalformedPacketException("length");
-        }
+    protected JoinRequestPayload(MacPayload _mac, ByteBuffer _raw) throws MalformedPacketException {
         mac = _mac;
-        _raw.order(ByteOrder.LITTLE_ENDIAN);
+        if (_raw.remaining() < 18) {
+            throw new MalformedPacketException("could not read joinRequestPayload");
+        }
         _raw.get(appEUI);
         _raw.get(devEUI);
         _raw.get(devNonce);
     }
 
-    public JoinRequestPayload(MacPayload _mac) {
-        mac = _mac;
-    }
-
-    public byte[] computeMic() {
-        if (appKey == null) {
-            throw new RuntimeException("undefined appKey");
+    public byte[] computeMic(byte[] _appKey) {
+        if (_appKey == null) {
+            throw new RuntimeException("Missing appKey");
+        }
+        if (_appKey.length != 16) {
+            throw new IllegalArgumentException("Invalid appKey");
         }
         //size = mhdr + length()
         ByteBuffer body = ByteBuffer.allocate(1 + length());
         body.order(ByteOrder.LITTLE_ENDIAN);
 
         body.put(mac.getPhyPayload().getMHDR());
-        toRaw(body);
+        binarize(body);
 
         AesCmac aesCmac;
         try {
             aesCmac = new AesCmac();
-            aesCmac.init(new SecretKeySpec(appKey, "AES"));
+            aesCmac.init(new SecretKeySpec(_appKey, "AES"));
             aesCmac.updateBlock(body.array());
             return Arrays.copyOfRange(aesCmac.doFinal(), 0, 4);
         } catch (NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException ex) {
@@ -87,61 +84,27 @@ public class JoinRequestPayload implements FRMPayload {
     }
 
     @Override
-    public void toRaw(ByteBuffer _bb) {
+    public void binarize(ByteBuffer _bb) {
         _bb.order(ByteOrder.LITTLE_ENDIAN);
-        _bb.put(getAppEUI());
-        _bb.put(getDevEUI());
-        _bb.put(getDevNonce());
+        _bb.put(appEUI);
+        _bb.put(devEUI);
+        _bb.put(devNonce);
     }
 
     public MacPayload getMac() {
         return mac;
     }
 
-    public JoinRequestPayload setMac(MacPayload _mac) {
-        this.mac = _mac;
-        return this;
-    }
-
     public byte[] getAppEUI() {
         return appEUI;
-    }
-
-    public JoinRequestPayload setAppEUI(byte[] _appEUI) {
-        this.appEUI = _appEUI;
-        return this;
     }
 
     public byte[] getDevEUI() {
         return devEUI;
     }
 
-    public JoinRequestPayload setDevEUI(byte[] _devEUI) {
-        this.devEUI = _devEUI;
-        return this;
-    }
-
     public byte[] getDevNonce() {
         return devNonce;
-    }
-
-    public JoinRequestPayload setDevNonce(byte[] _devNonce) {
-        this.devNonce = _devNonce;
-        return this;
-    }
-
-    public JoinRequestPayload setAppKey(byte[] _appKey) {
-        appKey = _appKey;
-        return this;
-    }
-
-    public byte[] getAppKey() {
-        return appKey;
-    }
-
-    @Override
-    public boolean validateMic() {
-        return Arrays.equals(computeMic(), mac.getPhyPayload().getMic());
     }
 
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 cambierr.
+ * Copyright 2016 Romain Cambier <me@romaincambier.be>.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,12 +21,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.github.cambierr.lorawanpacket.lorawan;
+package be.romaincambier.lorawan;
+
+import be.romaincambier.lorawan.exceptions.MalformedPacketException;
+import java.nio.ByteBuffer;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier <romain@shareif.com>
  */
-public interface ProprietaryPayload extends FRMPayload{
+public interface Binarizable {
+
+    public void binarize(ByteBuffer _bb) throws MalformedPacketException;
     
+    public int length();
 }

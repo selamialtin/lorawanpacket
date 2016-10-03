@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 cambierr.
+ * Copyright 2016 Romain Cambier <me@romaincambier.be>.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.github.cambierr.lorawanpacket.lorawan;
+package be.romaincambier.lorawan;
+
+import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 
 /**
  *
@@ -35,8 +37,8 @@ public enum MType {
     UNCONF_DATA_DOWN((byte) 0x03, DataPayload.class, Direction.DOWN),
     CONF_DATA_UP((byte) 0x04, DataPayload.class, Direction.UP),
     CONF_DATA_DOWN((byte) 0x05, DataPayload.class, Direction.DOWN),
-    RFU((byte) 0x06, RFUPayload.class, null),
-    PROPRIETARY((byte) 0x07, ProprietaryPayload.class, null);
+    RFU((byte) 0x06, null, null),
+    PROPRIETARY((byte) 0x07, null, null);
 
     private MType(byte _value, Class<? extends FRMPayload> _mapper, Direction _direction) {
         value = _value;
@@ -45,7 +47,7 @@ public enum MType {
     }
 
     private final byte value;
-    private final Class<? extends FRMPayload> mapper;
+    private Class<? extends FRMPayload> mapper;
     private final Direction direction;
 
     public static MType from(byte _mhdr) throws MalformedPacketException {
@@ -55,39 +57,25 @@ public enum MType {
                 return v;
             }
         }
-        throw new MalformedPacketException("MType");
+        throw new MalformedPacketException("unknown mType");
     }
-    
-    public Direction getDirection(){
+
+    public Direction getDirection() {
         return direction;
     }
 
     public Class<? extends FRMPayload> getMapper() {
-        if (mapper.equals(RFUPayload.class)) {
-            if (rfuMapper == null) {
-                throw new RuntimeException("Missing mapper for MType " + name());
-            } else {
-                return rfuMapper;
-            }
-        }
-        if (mapper.equals(ProprietaryPayload.class)) {
-            if (proprietaryMapper == null) {
-                throw new RuntimeException("Missing mapper for MType " + name());
-            } else {
-                return proprietaryMapper;
-            }
+        if (mapper == null) {
+            throw new RuntimeException("Missing mapper for mType " + name());
         }
         return mapper;
     }
 
-    private static Class<? extends RFUPayload> rfuMapper;
-    private static Class<? extends ProprietaryPayload> proprietaryMapper;
-
-    public void setRfuPayloadMapper(Class<? extends RFUPayload> _handler) {
-        rfuMapper = _handler;
+    public void setRfuPayloadMapper(Class<? extends FRMPayload> _handler) {
+        RFU.mapper = _handler;
     }
 
-    public void setProprietaryPayloadMapper(Class<? extends ProprietaryPayload> _handler) {
-        proprietaryMapper = _handler;
+    public void setProprietaryPayloadMapper(Class<? extends FRMPayload> _handler) {
+        PROPRIETARY.mapper = _handler;
     }
 }

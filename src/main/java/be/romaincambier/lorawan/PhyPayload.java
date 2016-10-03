@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 cambierr.
+ * Copyright 2016 Romain Cambier <me@romaincambier.be>.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,8 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.github.cambierr.lorawanpacket.lorawan;
+package be.romaincambier.lorawan;
 
+import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -30,23 +31,35 @@ import java.nio.ByteOrder;
  *
  * @author cambierr
  */
-public class PhyPayload {
+public class PhyPayload implements Binarizable {
 
-    private byte mhdr;
-    private MacPayload macPayload;
-    private byte[] mic = new byte[4];
+    private final byte mhdr;
+    private final MacPayload macPayload;
+    private final byte[] mic = new byte[4];
 
-    public PhyPayload(ByteBuffer _raw) throws MalformedPacketException {
+    private PhyPayload(ByteBuffer _raw) throws MalformedPacketException {
         _raw.order(ByteOrder.LITTLE_ENDIAN);
-        if (_raw.remaining() < 12) {
-            throw new MalformedPacketException();
+        if (_raw.remaining() < 1) {
+            throw new MalformedPacketException("can not read mhdr");
         }
         mhdr = _raw.get();
         macPayload = new MacPayload(this, _raw);
+        if (_raw.remaining() < 4) {
+            throw new MalformedPacketException("can not read mic");
+        }
         _raw.get(mic);
     }
 
-    public PhyPayload() {
+    public static PhyPayload parse(ByteBuffer _raw) throws MalformedPacketException {
+        return new PhyPayload(_raw);
+    }
+
+    @Override
+    public void binarize(ByteBuffer _bb) throws MalformedPacketException {
+        _bb.order(ByteOrder.LITTLE_ENDIAN);
+        _bb.put(mhdr);
+        macPayload.binarize(_bb);
+        _bb.put(mic);
     }
 
     public MType getMType() throws MalformedPacketException {
@@ -61,38 +74,17 @@ public class PhyPayload {
         return mhdr;
     }
 
-    public PhyPayload setMHDR(byte _mhdr) {
-        mhdr = _mhdr;
-        return this;
-    }
-
     public MacPayload getMacPayload() {
         return macPayload;
-    }
-
-    public PhyPayload setMacPayload(MacPayload _macPayload) {
-        macPayload = _macPayload;
-        return this;
-    }
-
-    public void toRaw(ByteBuffer _bb) throws MalformedPacketException {
-        _bb.order(ByteOrder.LITTLE_ENDIAN);
-        _bb.put(mhdr);
-        macPayload.toRaw(_bb);
-        _bb.put(mic);
     }
 
     public byte[] getMic() {
         return mic;
     }
 
-    public PhyPayload setMic(byte[] _mic) {
-        this.mic = _mic;
-        return this;
+    @Override
+    public int length() {
+        return 1 + macPayload.length() + 4;
     }
 
 }
-
-/**
- * @todo: remove setters and add builders with checks
- */

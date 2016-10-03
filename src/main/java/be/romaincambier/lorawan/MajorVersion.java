@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 cambierr.
+ * Copyright 2016 Romain Cambier <me@romaincambier.be>.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,36 +21,32 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.github.cambierr.lorawanpacket.semtech;
+package be.romaincambier.lorawan;
 
-import java.nio.ByteBuffer;
+import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 
 /**
  *
  * @author cambierr
  */
-public class PullAck extends SemtechPacket{
-    
-    public PullAck(byte[] _randoms, ByteBuffer _raw) {
-        super(_randoms, PacketType.PULL_ACK);
+public enum MajorVersion {
+
+    LORAWAN_R_1((byte) 0);
+
+    private final byte identifier;
+
+    private MajorVersion(byte _identifier) {
+        identifier = _identifier;
     }
-    
-    private PullAck(byte[] _randoms) {
-        super(_randoms, PacketType.PULL_ACK);
-    }
-    
-    public static class Builder{
-        
-        private final PullAck instance;
-        
-        public Builder(byte[] _randoms){
-            instance = new PullAck(_randoms);
+
+    public static MajorVersion from(byte _mhdr) throws MalformedPacketException {
+        byte mVersion = (byte) -(_mhdr & 0x03);
+        for (MajorVersion v : values()) {
+            if (v.identifier == mVersion) {
+                return v;
+            }
         }
-        
-        public PullAck build(){
-            return instance;
-        }
-        
+        throw new MalformedPacketException("Unknown major version");
     }
-    
+
 }

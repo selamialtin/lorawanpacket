@@ -21,24 +21,32 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.github.cambierr.lorawanpacket.lorawan;
+package be.romaincambier.lorawan.exceptions;
 
 /**
  *
  * @author cambierr
  */
-public enum Direction {
+public class MalformedPacketException extends Exception {
 
-    DOWN(1),
-    UP(0);
-
-    private final byte value;
-
-    private Direction(int _i) {
-        value = (byte) _i;
+    /**
+     * Creates a new instance of <code>MalformedPacketException</code> without
+     * detail message.
+     */
+    public MalformedPacketException() {
     }
 
-    public byte value() {
-        return value;
+    /**
+     * Constructs an instance of <code>MalformedPacketException</code> with the
+     * specified detail message.
+     *
+     * @param msg the detail message.
+     */
+    public MalformedPacketException(String msg) {
+        super(msg);
+    }
+
+    public MalformedPacketException(Exception e) {
+        super(e);
     }
 }
