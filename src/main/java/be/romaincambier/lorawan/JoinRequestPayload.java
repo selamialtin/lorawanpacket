@@ -30,30 +30,36 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public class JoinRequestPayload implements FRMPayload {
 
     private final MacPayload mac;
-    private final byte[] appEUI = new byte[8];
-    private final byte[] devEUI = new byte[8];
-    private final byte[] devNonce = new byte[2];
+    private final byte[] appEUI;
+    private final byte[] devEUI;
+    private final byte[] devNonce;
 
     protected JoinRequestPayload(MacPayload _mac, ByteBuffer _raw) throws MalformedPacketException {
         mac = _mac;
         if (_raw.remaining() < 18) {
             throw new MalformedPacketException("could not read joinRequestPayload");
         }
+        appEUI = new byte[8];
+        devEUI = new byte[8];
+        devNonce = new byte[2];
         _raw.get(appEUI);
         _raw.get(devEUI);
         _raw.get(devNonce);
     }
 
-    public byte[] computeMic(byte[] _appKey) {
+    public byte[] computeMic(byte[] _appKey) throws MalformedPacketException {
         if (_appKey == null) {
             throw new RuntimeException("Missing appKey");
         }
@@ -64,7 +70,7 @@ public class JoinRequestPayload implements FRMPayload {
         ByteBuffer body = ByteBuffer.allocate(1 + length());
         body.order(ByteOrder.LITTLE_ENDIAN);
 
-        body.put(mac.getPhyPayload().getMHDR());
+        mac.getPhyPayload().getMHDR().binarize(body);
         binarize(body);
 
         AesCmac aesCmac;
@@ -91,10 +97,6 @@ public class JoinRequestPayload implements FRMPayload {
         _bb.put(devNonce);
     }
 
-    public MacPayload getMac() {
-        return mac;
-    }
-
     public byte[] getAppEUI() {
         return appEUI;
     }
@@ -105,6 +107,72 @@ public class JoinRequestPayload implements FRMPayload {
 
     public byte[] getDevNonce() {
         return devNonce;
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    private JoinRequestPayload(MacPayload _macPayload, byte[] _appEUI, byte[] _devEUI, byte[] _devNonce) {
+        if (_appEUI == null) {
+            throw new IllegalArgumentException("Missing appEUI");
+        }
+        if (_appEUI.length != 8) {
+            throw new IllegalArgumentException("Invalid appEUI");
+        }
+        if (_devEUI == null) {
+            throw new IllegalArgumentException("Missing devEUI");
+        }
+        if (_devEUI.length != 8) {
+            throw new IllegalArgumentException("Invalid devEUI");
+        }
+        if (_devNonce == null) {
+            throw new IllegalArgumentException("Missing devNonce");
+        }
+        if (_devNonce.length != 2) {
+            throw new IllegalArgumentException("Invalid devNonce");
+        }
+        mac = _macPayload;
+        appEUI = _appEUI;
+        devEUI = _devEUI;
+        devNonce = _devNonce;
+    }
+
+    public static class Builder implements FRMPayload.Builder {
+
+        private byte[] appEUI;
+        private byte[] devEUI;
+        private byte[] devNonce;
+        private boolean used = false;
+
+        private Builder() {
+
+        }
+
+        public Builder setAppEUI(byte[] _appEUI) {
+            appEUI = _appEUI;
+            return this;
+        }
+
+        public Builder setDevEUI(byte[] _devEUI) {
+            devEUI = _devEUI;
+            return this;
+        }
+
+        public Builder setDevNonce(byte[] _devNonce) {
+            devNonce = _devNonce;
+            return this;
+        }
+
+        @Override
+        public FRMPayload build(MacPayload _macPayload) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
+            if (used) {
+                throw new RuntimeException("This builder has already been used");
+            }
+            used = true;
+            return new JoinRequestPayload(_macPayload, appEUI, devEUI, devNonce);
+        }
+
     }
 
 }

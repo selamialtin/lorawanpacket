@@ -25,7 +25,7 @@ package be.romaincambier.lorawan;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public enum Direction {
 

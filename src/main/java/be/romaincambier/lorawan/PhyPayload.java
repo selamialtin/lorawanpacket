@@ -26,27 +26,33 @@ package be.romaincambier.lorawan;
 import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public class PhyPayload implements Binarizable {
 
-    private final byte mhdr;
+    private final MHDR mhdr;
     private final MacPayload macPayload;
-    private final byte[] mic = new byte[4];
+    private final byte[] mic;
 
     private PhyPayload(ByteBuffer _raw) throws MalformedPacketException {
         _raw.order(ByteOrder.LITTLE_ENDIAN);
         if (_raw.remaining() < 1) {
             throw new MalformedPacketException("can not read mhdr");
         }
-        mhdr = _raw.get();
+        mhdr = new MHDR(this, _raw);
         macPayload = new MacPayload(this, _raw);
         if (_raw.remaining() < 4) {
             throw new MalformedPacketException("can not read mic");
         }
+        mic = new byte[4];
         _raw.get(mic);
     }
 
@@ -57,20 +63,12 @@ public class PhyPayload implements Binarizable {
     @Override
     public void binarize(ByteBuffer _bb) throws MalformedPacketException {
         _bb.order(ByteOrder.LITTLE_ENDIAN);
-        _bb.put(mhdr);
+        mhdr.binarize(_bb);
         macPayload.binarize(_bb);
         _bb.put(mic);
     }
 
-    public MType getMType() throws MalformedPacketException {
-        return MType.from(mhdr);
-    }
-
-    public MajorVersion getMajorVersion() throws MalformedPacketException {
-        return MajorVersion.from(mhdr);
-    }
-
-    public byte getMHDR() {
+    public MHDR getMHDR() {
         return mhdr;
     }
 
@@ -85,6 +83,58 @@ public class PhyPayload implements Binarizable {
     @Override
     public int length() {
         return 1 + macPayload.length() + 4;
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    private PhyPayload(MHDR.Builder _mhdr, MacPayload.Builder _macPayload) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+        if (_mhdr == null) {
+            throw new IllegalArgumentException("Missing mhdr");
+        }
+        if (_macPayload == null) {
+            throw new IllegalArgumentException("Missing macPayload");
+        }
+        mhdr = _mhdr.build(this);
+        macPayload = _macPayload.build(this);
+        /**
+         * @todo: Check mType here ?
+         */
+        /**
+         * @todo: mic ???
+         */
+        mic = null;
+    }
+
+    public static class Builder {
+
+        private MHDR.Builder mhdr;
+        private MacPayload.Builder macPayload;
+        private boolean used = false;
+
+        private Builder() {
+
+        }
+
+        public Builder setMhdr(MHDR.Builder _mhdr) {
+            mhdr = _mhdr;
+            return this;
+        }
+
+        public Builder setMacPayload(MacPayload.Builder _macPayload) {
+            macPayload = _macPayload;
+            return this;
+        }
+
+        public PhyPayload build() throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+            if (used) {
+                throw new RuntimeException("This builder has already been used");
+            }
+            used = true;
+            return new PhyPayload(mhdr, macPayload);
+        }
+
     }
 
 }

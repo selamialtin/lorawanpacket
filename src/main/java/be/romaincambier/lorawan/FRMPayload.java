@@ -23,11 +23,21 @@
  */
 package be.romaincambier.lorawan;
 
+import be.romaincambier.lorawan.exceptions.MalformedPacketException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public interface FRMPayload extends Binarizable {
+    
+    public static interface Builder {
 
-    //public byte[] computeMic() throws MalformedPacketException;
+        public FRMPayload build(MacPayload _macPayload) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException;
+    }
 }

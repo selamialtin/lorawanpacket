@@ -27,6 +27,11 @@ import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 /**
  *
@@ -41,9 +46,9 @@ public class MacPayload implements Binarizable {
 
     protected MacPayload(PhyPayload _phy, ByteBuffer _raw) throws MalformedPacketException {
         phy = _phy;
-        fhdr = new FHDR(_raw);
+        fhdr = new FHDR(this, _raw);
         fPort = _raw.get();
-        Class<? extends FRMPayload> mapper = phy.getMType().getMapper();
+        Class<? extends FRMPayload> mapper = phy.getMHDR().getMType().getMapper();
         try {
             payload = mapper.getDeclaredConstructor(MacPayload.class, ByteBuffer.class).newInstance(this, _raw);
         } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
@@ -80,6 +85,62 @@ public class MacPayload implements Binarizable {
     @Override
     public int length() {
         return fhdr.length() + ((payload == null) ? 0 : (1 + payload.length()));
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    private MacPayload(PhyPayload _phy, FHDR.Builder _fhdr, Byte _fPort, FRMPayload.Builder _payload) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+        phy = _phy;
+        if (_fhdr == null) {
+            throw new IllegalArgumentException("Missing fhdr");
+        }
+        if (_fPort == null) {
+            throw new IllegalArgumentException("Missing fPort");
+        }
+        if (_payload == null) {
+            throw new IllegalArgumentException("Missing payload");
+        }
+        fhdr = _fhdr.build(this);
+        fPort = _fPort;
+        payload = _payload.build(this);
+    }
+
+    public static class Builder {
+
+        private FHDR.Builder fhdr;
+        private Byte fPort;
+        private FRMPayload.Builder payload;
+        private boolean used = false;
+
+        private Builder() {
+
+        }
+
+        public Builder setFhdr(FHDR.Builder _fhdr) {
+            fhdr = _fhdr;
+            return this;
+        }
+
+        public Builder setFport(Byte _fPort) {
+            fPort = _fPort;
+            return this;
+        }
+
+        public Builder setPayload(FRMPayload.Builder _payload) {
+            payload = _payload;
+            return this;
+        }
+
+        public MacPayload build(PhyPayload _phy) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+            if (used) {
+                throw new RuntimeException("This builder has already been used");
+            }
+            used = true;
+            return new MacPayload(_phy, fhdr, fPort, payload);
+        }
+
     }
 
 }

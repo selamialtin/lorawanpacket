@@ -28,19 +28,22 @@ import java.nio.ByteBuffer;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public class FHDR implements Binarizable {
 
-    private final byte[] devAddr = new byte[4];
+    private final byte[] devAddr;
     private final byte fCtrl;
     private final short fCnt;
     private final byte[] fOpts;
+    private final MacPayload macPayload;
 
-    protected FHDR(ByteBuffer _raw) throws MalformedPacketException {
+    protected FHDR(MacPayload _macPayload, ByteBuffer _raw) throws MalformedPacketException {
+        macPayload = _macPayload;
         if (_raw.remaining() < 7) {
             throw new MalformedPacketException("can not read fhdr");
         }
+        devAddr = new byte[4];
         _raw.get(devAddr);
         fCtrl = _raw.get();
         fCnt = _raw.getShort();
@@ -78,5 +81,77 @@ public class FHDR implements Binarizable {
     @Override
     public int length() {
         return devAddr.length + 1 + 2 + fOpts.length;
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    private FHDR(MacPayload _macPayload, byte[] _devAddr, Byte _fCtrl, Short _fCnt, byte[] _fOpts) {
+        if (_devAddr == null) {
+            throw new IllegalArgumentException("Missing devAddr");
+        }
+        if (_devAddr.length != 4) {
+            throw new IllegalArgumentException("Invalid devAddr");
+        }
+        if (_fCtrl == null) {
+            throw new IllegalArgumentException("Missing fCtrl");
+        }
+        if (_fCnt == null) {
+            throw new IllegalArgumentException("Missing fCnt");
+        }
+        if (_fOpts == null) {
+            throw new IllegalArgumentException("Missing fOpts");
+        }
+        if (_fOpts.length != (_fCtrl & 0xf)) {
+            throw new IllegalArgumentException("Invalid fOpts");
+        }
+        macPayload = _macPayload;
+        devAddr = _devAddr;
+        fCtrl = _fCtrl;
+        fCnt = _fCnt;
+        fOpts = _fOpts;
+    }
+
+    public static class Builder {
+
+        private byte[] devAddr;
+        private byte fCtrl;
+        private short fCnt;
+        private byte[] fOpts;
+        private boolean used = false;
+
+        private Builder() {
+
+        }
+
+        public Builder setDevAddr(byte[] _devAddr) {
+            devAddr = _devAddr;
+            return this;
+        }
+
+        public Builder setFCtrl(Byte _fCtrl) {
+            fCtrl = _fCtrl;
+            return this;
+        }
+
+        public Builder setFCnt(Short _fCnt) {
+            fCnt = _fCnt;
+            return this;
+        }
+
+        public Builder setFOpts(byte[] _fOpts) {
+            fOpts = _fOpts;
+            return this;
+        }
+
+        protected FHDR build(MacPayload _macPayload) throws MalformedPacketException {
+            if (used) {
+                throw new RuntimeException("This builder has already been used");
+            }
+            used = true;
+            return new FHDR(_macPayload, devAddr, fCtrl, fCnt, fOpts);
+        }
+
     }
 }

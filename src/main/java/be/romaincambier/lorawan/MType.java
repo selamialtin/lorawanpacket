@@ -27,7 +27,7 @@ import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public enum MType {
 
@@ -62,6 +62,10 @@ public enum MType {
 
     public Direction getDirection() {
         return direction;
+    }
+    
+    public byte value(){
+        return value;
     }
 
     public Class<? extends FRMPayload> getMapper() {

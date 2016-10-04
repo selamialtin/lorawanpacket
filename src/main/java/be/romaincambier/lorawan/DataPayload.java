@@ -39,7 +39,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public class DataPayload implements FRMPayload, Binarizable {
 
@@ -65,13 +65,13 @@ public class DataPayload implements FRMPayload, Binarizable {
 
         body.put((byte) 0x49);
         body.put(new byte[]{0x00, 0x00, 0x00, 0x00});
-        body.put(mac.getPhyPayload().getMType().getDirection().value());
+        body.put(mac.getPhyPayload().getMHDR().getMType().getDirection().value());
         body.put(mac.getFhdr().getDevAddr());
         body.putInt(mac.getFhdr().getfCnt());
         body.put((byte) 0x00);
         body.put((byte) (1 + mac.length()));
 
-        body.put(mac.getPhyPayload().getMHDR());
+        mac.getPhyPayload().getMHDR().binarize(body);
         mac.binarize(body);
 
         AesCmac aesCmac;
@@ -116,7 +116,7 @@ public class DataPayload implements FRMPayload, Binarizable {
         for (int i = 1; i <= k; i++) {
             a.put((byte) 0x01);
             a.put(new byte[]{0x00, 0x00, 0x00, 0x00});
-            a.put(mac.getPhyPayload().getMType().getDirection().value());
+            a.put(mac.getPhyPayload().getMHDR().getMType().getDirection().value());
             a.put(mac.getFhdr().getDevAddr());
             a.putInt(mac.getFhdr().getfCnt());
             a.put((byte) 0x00);
@@ -135,6 +135,50 @@ public class DataPayload implements FRMPayload, Binarizable {
         return plainPayload;
     }
 
+    private byte[] encryptPayload(byte[] _data, byte[] _nwkSKey, byte[] _appSKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
+        byte[] key;
+        if (mac.getfPort() == 0) {
+            if (_nwkSKey == null) {
+                throw new IllegalArgumentException("Missing nwkSKey");
+            }
+            if (_nwkSKey.length != 16) {
+                throw new IllegalArgumentException("Invalid nwkSKey");
+            }
+            key = _nwkSKey;
+        } else {
+            if (_appSKey == null) {
+                throw new IllegalArgumentException("Missing appSKey");
+            }
+            if (_appSKey.length != 16) {
+                throw new IllegalArgumentException("Invalid appSKey");
+            }
+            key = _appSKey;
+        }
+        int k = (int) Math.ceil(_data.length / 16.0);
+        ByteBuffer a = ByteBuffer.allocate(16 * k);
+        a.order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 1; i <= k; i++) {
+            a.put((byte) 0x01);
+            a.put(new byte[]{0x00, 0x00, 0x00, 0x00});
+            a.put(mac.getPhyPayload().getMHDR().getMType().getDirection().value());
+            a.put(mac.getFhdr().getDevAddr());
+            a.putInt(mac.getFhdr().getfCnt());
+            a.put((byte) 0x00);
+            a.put((byte) i);
+        }
+        Key aesKey = new SecretKeySpec(key, "AES");
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.ENCRYPT_MODE, aesKey);
+        byte[] s = cipher.doFinal(a.array());
+        byte[] paddedPayload = new byte[16 * k];
+        System.arraycopy(_data, 0, paddedPayload, 0, _data.length);
+        byte[] output = new byte[_data.length];
+        for (int i = 0; i < _data.length; i++) {
+            output[i] = (byte) (s[i] ^ paddedPayload[i]);
+        }
+        return output;
+    }
+
     public MacPayload getMac() {
         return mac;
     }
@@ -146,6 +190,55 @@ public class DataPayload implements FRMPayload, Binarizable {
     @Override
     public int length() {
         return payload.length;
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    private DataPayload(MacPayload _macPayload, byte[] _payload, byte[] _nwkSKey, byte[] _appSKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
+        if (_payload == null) {
+            throw new IllegalArgumentException("Missing payload");
+        }
+        mac = _macPayload;
+        payload = encryptPayload(_payload, _nwkSKey, _appSKey);
+    }
+
+    public static class Builder implements FRMPayload.Builder {
+
+        private byte[] payload;
+        private byte[] nwkSKey;
+        private byte[] appSKey;
+        private boolean used;
+
+        private Builder() {
+
+        }
+
+        public Builder setPayload(byte[] _payload) {
+            payload = _payload;
+            return this;
+        }
+
+        public Builder setNwkSKey(byte[] _nwkSKey) {
+            nwkSKey = _nwkSKey;
+            return this;
+        }
+
+        public Builder setAppSKey(byte[] _appSKey) {
+            appSKey = _appSKey;
+            return this;
+        }
+
+        @Override
+        public DataPayload build(MacPayload _macPayload) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
+            if (used) {
+                throw new RuntimeException("This builder has already been used");
+            }
+            used = true;
+            return new DataPayload(_macPayload, payload, nwkSKey, appSKey);
+        }
+
     }
 
 }

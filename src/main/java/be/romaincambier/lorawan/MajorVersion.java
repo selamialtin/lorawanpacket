@@ -27,7 +27,7 @@ import be.romaincambier.lorawan.exceptions.MalformedPacketException;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public enum MajorVersion {
 
@@ -37,6 +37,10 @@ public enum MajorVersion {
 
     private MajorVersion(byte _identifier) {
         identifier = _identifier;
+    }
+    
+    public byte value(){
+        return identifier;
     }
 
     public static MajorVersion from(byte _mhdr) throws MalformedPacketException {

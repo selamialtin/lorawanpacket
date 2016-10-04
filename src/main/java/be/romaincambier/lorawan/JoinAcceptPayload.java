@@ -39,59 +39,76 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public class JoinAcceptPayload implements FRMPayload {
 
     private final MacPayload mac;
-    private final byte[] payload;
+    private final byte[] encryptedPayload;
+    private ClearPayload payload;
 
     protected JoinAcceptPayload(MacPayload _mac, ByteBuffer _raw) throws MalformedPacketException {
         mac = _mac;
         if (_raw.remaining() < 12) {
             throw new MalformedPacketException("could not read joinAcceptPayload");
         }
-        payload = new byte[_raw.remaining() - 4];
-        _raw.get(payload);
+        encryptedPayload = new byte[_raw.remaining() - 4];
+        _raw.get(encryptedPayload);
     }
 
     @Override
     public int length() {
-        return payload.length;
+        return encryptedPayload.length;
     }
 
     @Override
     public void binarize(ByteBuffer _bb) {
-        _bb.put(payload);
+        _bb.put(encryptedPayload);
     }
 
     public MacPayload getMac() {
         return mac;
     }
 
-    public JoinAcceptClearPayload getClearPayload(byte[] _appKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    public ClearPayload getClearPayload(byte[] _appKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+        if (payload == null) {
+            if (_appKey == null) {
+                throw new RuntimeException("Missing appKey");
+            }
+            if (_appKey.length != 16) {
+                throw new IllegalArgumentException("Invalid appKey");
+            }
+            ByteBuffer a = ByteBuffer.allocate(4 + length());
+            a.order(ByteOrder.LITTLE_ENDIAN);
+            a.put(encryptedPayload);
+            a.put(mac.getPhyPayload().getMic());
+            Key aesKey = new SecretKeySpec(_appKey, "AES");
+            Cipher cipher = Cipher.getInstance("AES");
+            cipher.init(Cipher.ENCRYPT_MODE, aesKey);
+            byte[] s = cipher.doFinal(a.array());
+            payload = new ClearPayload(s);
+        }
+        return payload;
+    }
+
+    private byte[] getEncryptedPayload(byte[] _appKey) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         if (_appKey == null) {
             throw new RuntimeException("Missing appKey");
         }
         if (_appKey.length != 16) {
             throw new IllegalArgumentException("Invalid appKey");
         }
-        ByteBuffer a = ByteBuffer.allocate(4 + length());
+        ByteBuffer a = ByteBuffer.allocate(4 + payload.length());
         a.order(ByteOrder.LITTLE_ENDIAN);
-        a.put(payload);
-        a.put(mac.getPhyPayload().getMic());
-        try {
-            Key aesKey = new SecretKeySpec(_appKey, "AES");
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.ENCRYPT_MODE, aesKey);
-            byte[] s = cipher.doFinal(a.array());
-            return new JoinAcceptClearPayload(s);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
-            throw new RuntimeException("Could not decrypt payload", ex);
-        }
+        payload.binarize(a);
+        a.put(computeMic(_appKey));
+        Key aesKey = new SecretKeySpec(_appKey, "AES");
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.DECRYPT_MODE, aesKey);
+        return cipher.doFinal(a.array());
     }
 
-    public byte[] computeMic(byte[] _appKey) {
+    public byte[] computeMic(byte[] _appKey) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         if (_appKey == null) {
             throw new RuntimeException("Missing appKey");
         }
@@ -101,8 +118,8 @@ public class JoinAcceptPayload implements FRMPayload {
         //size = mhdr + length()
         ByteBuffer body = ByteBuffer.allocate(1 + length());
         body.order(ByteOrder.LITTLE_ENDIAN);
-        body.put(mac.getPhyPayload().getMHDR());
-        binarize(body);
+        mac.getPhyPayload().getMHDR().binarize(body);
+        getClearPayload(_appKey).binarize(body);
 
         AesCmac aesCmac;
         try {
@@ -115,17 +132,20 @@ public class JoinAcceptPayload implements FRMPayload {
         }
     }
 
-    public static class JoinAcceptClearPayload implements Binarizable {
+    public static class ClearPayload implements Binarizable {
 
-        private final byte[] appNonce = new byte[3];
-        private final byte[] netId = new byte[3];
-        private final byte[] devAddr = new byte[4];
+        private final byte[] appNonce;
+        private final byte[] netId;
+        private final byte[] devAddr;
         private final byte dlSettings;
         private final byte rxDelay;
         private final byte[] cfList;
 
-        private JoinAcceptClearPayload(byte[] _raw) {
+        private ClearPayload(byte[] _raw) {
             ByteBuffer bb = ByteBuffer.wrap(_raw);
+            appNonce = new byte[3];
+            netId = new byte[3];
+            devAddr = new byte[4];
             bb.get(appNonce);
             bb.get(netId);
             bb.get(devAddr);
@@ -173,6 +193,145 @@ public class JoinAcceptPayload implements FRMPayload {
         public int length() {
             return appNonce.length + netId.length + devAddr.length + 1 + 1 + cfList.length;
         }
+
+        public static Builder newBuilder() {
+            return new Builder();
+        }
+
+        private ClearPayload(byte[] _appNonce, byte[] _netId, byte[] _devAddr, Byte _dlSettings, Byte _rxDelay, byte[] _cfList) {
+            if (_appNonce == null) {
+                throw new IllegalArgumentException("Missing appNonce");
+            }
+            if (_appNonce.length != 3) {
+                throw new IllegalArgumentException("Invalid appNonce");
+            }
+            if (_netId == null) {
+                throw new IllegalArgumentException("Missing netId");
+            }
+            if (_netId.length != 3) {
+                throw new IllegalArgumentException("Invalid netId");
+            }
+            if (_devAddr == null) {
+                throw new IllegalArgumentException("Missing devAddr");
+            }
+            if (_devAddr.length != 4) {
+                throw new IllegalArgumentException("Invalid devAddr");
+            }
+            if (_cfList == null) {
+                throw new IllegalArgumentException("Missing cfList");
+            }
+            if (_dlSettings == null) {
+                throw new IllegalArgumentException("Missing dlSettings");
+            }
+            if (_rxDelay == null) {
+                throw new IllegalArgumentException("Missing rxDelay");
+            }
+            appNonce = _appNonce;
+            netId = _netId;
+            devAddr = _devAddr;
+            dlSettings = _dlSettings;
+            rxDelay = _rxDelay;
+            cfList = _cfList;
+        }
+
+        public static class Builder {
+
+            private byte[] appNonce;
+            private byte[] netId;
+            private byte[] devAddr;
+            private Byte dlSettings;
+            private Byte rxDelay;
+            private byte[] cfList;
+
+            private boolean used = false;
+
+            private Builder() {
+
+            }
+
+            public Builder setAppNonce(byte[] _appNonce) {
+                appNonce = _appNonce;
+                return this;
+            }
+
+            public Builder setNetId(byte[] _netId) {
+                netId = _netId;
+                return this;
+            }
+
+            public Builder setDevAddr(byte[] _devAddr) {
+                devAddr = _devAddr;
+                return this;
+            }
+
+            public Builder setDlSettings(byte _dlSettings) {
+                dlSettings = _dlSettings;
+                return this;
+            }
+
+            public Builder setRxDelay(byte _rxDelay) {
+                rxDelay = _rxDelay;
+                return this;
+            }
+
+            public Builder setCfList(byte[] _cfList) {
+                cfList = _cfList;
+                return this;
+            }
+
+            protected ClearPayload build() {
+                if (used) {
+                    throw new RuntimeException("This builder has already been used");
+                }
+                used = true;
+                return new ClearPayload(appNonce, netId, devAddr, dlSettings, rxDelay, cfList);
+            }
+
+        }
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    private JoinAcceptPayload(MacPayload _macPayload, ClearPayload.Builder _payload, byte[] _appKey) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+        if (_payload == null) {
+            throw new IllegalArgumentException("Missing payload");
+        }
+        mac = _macPayload;
+        payload = _payload.build();
+        encryptedPayload = getEncryptedPayload(_appKey);
+    }
+
+    public static class Builder implements FRMPayload.Builder {
+
+        private byte[] appKey;
+        private ClearPayload.Builder payload;
+        private boolean used = false;
+
+        private Builder() {
+
+        }
+
+        public Builder setPayload(ClearPayload.Builder _payload) {
+            payload = _payload;
+            return this;
+        }
+
+        public Builder setAppKey(byte[] _appKey) {
+            appKey = _appKey;
+            return this;
+        }
+
+        @Override
+        public JoinAcceptPayload build(MacPayload _macPayload) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
+            if (used) {
+                throw new RuntimeException("This builder has already been used");
+            }
+            used = true;
+            return new JoinAcceptPayload(_macPayload, payload, appKey);
+        }
+
     }
 
 }

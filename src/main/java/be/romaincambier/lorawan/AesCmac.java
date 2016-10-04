@@ -38,7 +38,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  *
- * @author cambierr
+ * @author Romain Cambier
  */
 public class AesCmac {
 

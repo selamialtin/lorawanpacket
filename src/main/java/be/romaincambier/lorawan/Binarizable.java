@@ -28,7 +28,7 @@ import java.nio.ByteBuffer;
 
 /**
  *
- * @author Romain Cambier <romain@shareif.com>
+ * @author Romain Cambier
  */
 public interface Binarizable {
 
