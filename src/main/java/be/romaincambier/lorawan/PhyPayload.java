@@ -24,6 +24,7 @@
 package be.romaincambier.lorawan;
 
 import be.romaincambier.lorawan.exceptions.MalformedPacketException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.InvalidKeyException;
@@ -39,7 +40,7 @@ import javax.crypto.NoSuchPaddingException;
 public class PhyPayload implements Binarizable {
 
     private final MHDR mhdr;
-    private final MacPayload macPayload;
+    private final Message message;
     private final byte[] mic;
 
     private PhyPayload(ByteBuffer _raw) throws MalformedPacketException {
@@ -48,7 +49,12 @@ public class PhyPayload implements Binarizable {
             throw new MalformedPacketException("can not read mhdr");
         }
         mhdr = new MHDR(this, _raw);
-        macPayload = new MacPayload(this, _raw);
+        Class<? extends Message> mapper = mhdr.getMType().getMapper();
+        try {
+            message = mapper.getDeclaredConstructor(PhyPayload.class, ByteBuffer.class).newInstance(this, _raw);
+        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+            throw new RuntimeException("Could not create Message", ex);
+        }
         if (_raw.remaining() < 4) {
             throw new MalformedPacketException("can not read mic");
         }
@@ -64,7 +70,7 @@ public class PhyPayload implements Binarizable {
     public void binarize(ByteBuffer _bb) throws MalformedPacketException {
         _bb.order(ByteOrder.LITTLE_ENDIAN);
         mhdr.binarize(_bb);
-        macPayload.binarize(_bb);
+        message.binarize(_bb);
         _bb.put(mic);
     }
 
@@ -72,8 +78,8 @@ public class PhyPayload implements Binarizable {
         return mhdr;
     }
 
-    public MacPayload getMacPayload() {
-        return macPayload;
+    public Message getMessage() {
+        return message;
     }
 
     public byte[] getMic() {
@@ -82,14 +88,14 @@ public class PhyPayload implements Binarizable {
 
     @Override
     public int length() {
-        return 1 + macPayload.length() + 4;
+        return 1 + message.length() + 4;
     }
 
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    private PhyPayload(MHDR.Builder _mhdr, MacPayload.Builder _macPayload) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    private PhyPayload(MHDR.Builder _mhdr, MACPayload.Builder _macPayload) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         if (_mhdr == null) {
             throw new IllegalArgumentException("Missing mhdr");
         }
@@ -97,7 +103,7 @@ public class PhyPayload implements Binarizable {
             throw new IllegalArgumentException("Missing macPayload");
         }
         mhdr = _mhdr.build(this);
-        macPayload = _macPayload.build(this);
+        message = _macPayload.build(this);
         /**
          * @todo: Check mType here ?
          */
@@ -110,7 +116,7 @@ public class PhyPayload implements Binarizable {
     public static class Builder {
 
         private MHDR.Builder mhdr;
-        private MacPayload.Builder macPayload;
+        private MACPayload.Builder macPayload;
         private boolean used = false;
 
         private Builder() {
@@ -122,7 +128,7 @@ public class PhyPayload implements Binarizable {
             return this;
         }
 
-        public Builder setMacPayload(MacPayload.Builder _macPayload) {
+        public Builder setMacPayload(MACPayload.Builder _macPayload) {
             macPayload = _macPayload;
             return this;
         }

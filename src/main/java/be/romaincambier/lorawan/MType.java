@@ -33,21 +33,21 @@ public enum MType {
 
     JOIN_REQUEST((byte) 0x00, JoinRequestPayload.class, Direction.UP),
     JOIN_ACCEPT((byte) 0x01, JoinAcceptPayload.class, Direction.DOWN),
-    UNCONF_DATA_UP((byte) 0x02, DataPayload.class, Direction.UP),
-    UNCONF_DATA_DOWN((byte) 0x03, DataPayload.class, Direction.DOWN),
-    CONF_DATA_UP((byte) 0x04, DataPayload.class, Direction.UP),
-    CONF_DATA_DOWN((byte) 0x05, DataPayload.class, Direction.DOWN),
+    UNCONF_DATA_UP((byte) 0x02, MACPayload.class, Direction.UP),
+    UNCONF_DATA_DOWN((byte) 0x03, MACPayload.class, Direction.DOWN),
+    CONF_DATA_UP((byte) 0x04, MACPayload.class, Direction.UP),
+    CONF_DATA_DOWN((byte) 0x05, MACPayload.class, Direction.DOWN),
     RFU((byte) 0x06, null, null),
     PROPRIETARY((byte) 0x07, null, null);
 
-    private MType(byte _value, Class<? extends FRMPayload> _mapper, Direction _direction) {
+    private MType(byte _value, Class<? extends Message> _mapper, Direction _direction) {
         value = _value;
         mapper = _mapper;
         direction = _direction;
     }
 
     private final byte value;
-    private Class<? extends FRMPayload> mapper;
+    private Class<? extends Message> mapper;
     private final Direction direction;
 
     public static MType from(byte _mhdr) throws MalformedPacketException {
@@ -63,23 +63,23 @@ public enum MType {
     public Direction getDirection() {
         return direction;
     }
-    
-    public byte value(){
+
+    public byte value() {
         return value;
     }
 
-    public Class<? extends FRMPayload> getMapper() {
+    public Class<? extends Message> getMapper() {
         if (mapper == null) {
             throw new RuntimeException("Missing mapper for mType " + name());
         }
         return mapper;
     }
 
-    public void setRfuPayloadMapper(Class<? extends FRMPayload> _handler) {
+    public void setRfuPayloadMapper(Class<? extends Message> _handler) {
         RFU.mapper = _handler;
     }
 
-    public void setProprietaryPayloadMapper(Class<? extends FRMPayload> _handler) {
+    public void setProprietaryPayloadMapper(Class<? extends Message> _handler) {
         PROPRIETARY.mapper = _handler;
     }
 }

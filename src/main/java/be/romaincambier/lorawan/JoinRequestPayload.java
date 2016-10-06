@@ -39,15 +39,15 @@ import javax.crypto.spec.SecretKeySpec;
  *
  * @author Romain Cambier
  */
-public class JoinRequestPayload implements FRMPayload {
+public class JoinRequestPayload implements Message {
 
-    private final MacPayload mac;
+    private final PhyPayload phy;
     private final byte[] appEUI;
     private final byte[] devEUI;
     private final byte[] devNonce;
 
-    protected JoinRequestPayload(MacPayload _mac, ByteBuffer _raw) throws MalformedPacketException {
-        mac = _mac;
+    protected JoinRequestPayload(PhyPayload _phy, ByteBuffer _raw) throws MalformedPacketException {
+        phy = _phy;
         if (_raw.remaining() < 18) {
             throw new MalformedPacketException("could not read joinRequestPayload");
         }
@@ -70,7 +70,7 @@ public class JoinRequestPayload implements FRMPayload {
         ByteBuffer body = ByteBuffer.allocate(1 + length());
         body.order(ByteOrder.LITTLE_ENDIAN);
 
-        mac.getPhyPayload().getMHDR().binarize(body);
+        phy.getMHDR().binarize(body);
         binarize(body);
 
         AesCmac aesCmac;
@@ -113,7 +113,7 @@ public class JoinRequestPayload implements FRMPayload {
         return new Builder();
     }
 
-    private JoinRequestPayload(MacPayload _macPayload, byte[] _appEUI, byte[] _devEUI, byte[] _devNonce) {
+    private JoinRequestPayload(PhyPayload _phy, byte[] _appEUI, byte[] _devEUI, byte[] _devNonce) {
         if (_appEUI == null) {
             throw new IllegalArgumentException("Missing appEUI");
         }
@@ -132,13 +132,13 @@ public class JoinRequestPayload implements FRMPayload {
         if (_devNonce.length != 2) {
             throw new IllegalArgumentException("Invalid devNonce");
         }
-        mac = _macPayload;
+        phy = _phy;
         appEUI = _appEUI;
         devEUI = _devEUI;
         devNonce = _devNonce;
     }
 
-    public static class Builder implements FRMPayload.Builder {
+    public static class Builder implements Message.Builder {
 
         private byte[] appEUI;
         private byte[] devEUI;
@@ -165,12 +165,12 @@ public class JoinRequestPayload implements FRMPayload {
         }
 
         @Override
-        public FRMPayload build(MacPayload _macPayload) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
+        public Message build(PhyPayload _phy) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
             if (used) {
                 throw new RuntimeException("This builder has already been used");
             }
             used = true;
-            return new JoinRequestPayload(_macPayload, appEUI, devEUI, devNonce);
+            return new JoinRequestPayload(_phy, appEUI, devEUI, devNonce);
         }
 
     }

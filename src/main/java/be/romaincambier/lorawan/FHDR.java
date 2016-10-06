@@ -36,9 +36,9 @@ public class FHDR implements Binarizable {
     private final byte fCtrl;
     private final short fCnt;
     private final byte[] fOpts;
-    private final MacPayload macPayload;
+    private final MACPayload macPayload;
 
-    protected FHDR(MacPayload _macPayload, ByteBuffer _raw) throws MalformedPacketException {
+    protected FHDR(MACPayload _macPayload, ByteBuffer _raw) throws MalformedPacketException {
         macPayload = _macPayload;
         if (_raw.remaining() < 7) {
             throw new MalformedPacketException("can not read fhdr");
@@ -87,7 +87,7 @@ public class FHDR implements Binarizable {
         return new Builder();
     }
 
-    private FHDR(MacPayload _macPayload, byte[] _devAddr, Byte _fCtrl, Short _fCnt, byte[] _fOpts) {
+    private FHDR(MACPayload _macPayload, byte[] _devAddr, Byte _fCtrl, Short _fCnt, byte[] _fOpts) {
         if (_devAddr == null) {
             throw new IllegalArgumentException("Missing devAddr");
         }
@@ -145,7 +145,7 @@ public class FHDR implements Binarizable {
             return this;
         }
 
-        protected FHDR build(MacPayload _macPayload) throws MalformedPacketException {
+        protected FHDR build(MACPayload _macPayload) throws MalformedPacketException {
             if (used) {
                 throw new RuntimeException("This builder has already been used");
             }

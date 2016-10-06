@@ -24,7 +24,6 @@
 package be.romaincambier.lorawan;
 
 import be.romaincambier.lorawan.exceptions.MalformedPacketException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.InvalidKeyException;
@@ -37,23 +36,18 @@ import javax.crypto.NoSuchPaddingException;
  *
  * @author cambierr
  */
-public class MacPayload implements Binarizable {
+public class MACPayload implements Message, Binarizable {
 
     private final FHDR fhdr;
     private final byte fPort;
     private final FRMPayload payload;
     private final PhyPayload phy;
 
-    protected MacPayload(PhyPayload _phy, ByteBuffer _raw) throws MalformedPacketException {
+    protected MACPayload(PhyPayload _phy, ByteBuffer _raw) throws MalformedPacketException {
         phy = _phy;
         fhdr = new FHDR(this, _raw);
         fPort = _raw.get();
-        Class<? extends FRMPayload> mapper = phy.getMHDR().getMType().getMapper();
-        try {
-            payload = mapper.getDeclaredConstructor(MacPayload.class, ByteBuffer.class).newInstance(this, _raw);
-        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-            throw new RuntimeException("Could not create FRMPayload", ex);
-        }
+        payload = new FRMPayload(this, _raw);
     }
 
     @Override
@@ -74,7 +68,7 @@ public class MacPayload implements Binarizable {
         return fPort;
     }
 
-    public FRMPayload getPayload() {
+    public FRMPayload getFRMPayload() {
         return payload;
     }
 
@@ -91,7 +85,7 @@ public class MacPayload implements Binarizable {
         return new Builder();
     }
 
-    private MacPayload(PhyPayload _phy, FHDR.Builder _fhdr, Byte _fPort, FRMPayload.Builder _payload) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    private MACPayload(PhyPayload _phy, FHDR.Builder _fhdr, Byte _fPort, FRMPayload.Builder _payload) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         phy = _phy;
         if (_fhdr == null) {
             throw new IllegalArgumentException("Missing fhdr");
@@ -133,12 +127,12 @@ public class MacPayload implements Binarizable {
             return this;
         }
 
-        public MacPayload build(PhyPayload _phy) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+        public MACPayload build(PhyPayload _phy) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
             if (used) {
                 throw new RuntimeException("This builder has already been used");
             }
             used = true;
-            return new MacPayload(_phy, fhdr, fPort, payload);
+            return new MACPayload(_phy, fhdr, fPort, payload);
         }
 
     }

@@ -41,14 +41,14 @@ import javax.crypto.spec.SecretKeySpec;
  *
  * @author Romain Cambier
  */
-public class JoinAcceptPayload implements FRMPayload {
+public class JoinAcceptPayload implements Message {
 
-    private final MacPayload mac;
+    private final PhyPayload phy;
     private final byte[] encryptedPayload;
     private ClearPayload payload;
 
-    protected JoinAcceptPayload(MacPayload _mac, ByteBuffer _raw) throws MalformedPacketException {
-        mac = _mac;
+    protected JoinAcceptPayload(PhyPayload _phy, ByteBuffer _raw) throws MalformedPacketException {
+        phy = _phy;
         if (_raw.remaining() < 12) {
             throw new MalformedPacketException("could not read joinAcceptPayload");
         }
@@ -66,10 +66,6 @@ public class JoinAcceptPayload implements FRMPayload {
         _bb.put(encryptedPayload);
     }
 
-    public MacPayload getMac() {
-        return mac;
-    }
-
     public ClearPayload getClearPayload(byte[] _appKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         if (payload == null) {
             if (_appKey == null) {
@@ -81,7 +77,7 @@ public class JoinAcceptPayload implements FRMPayload {
             ByteBuffer a = ByteBuffer.allocate(4 + length());
             a.order(ByteOrder.LITTLE_ENDIAN);
             a.put(encryptedPayload);
-            a.put(mac.getPhyPayload().getMic());
+            a.put(phy.getMic());
             Key aesKey = new SecretKeySpec(_appKey, "AES");
             Cipher cipher = Cipher.getInstance("AES");
             cipher.init(Cipher.ENCRYPT_MODE, aesKey);
@@ -118,7 +114,7 @@ public class JoinAcceptPayload implements FRMPayload {
         //size = mhdr + length()
         ByteBuffer body = ByteBuffer.allocate(1 + length());
         body.order(ByteOrder.LITTLE_ENDIAN);
-        mac.getPhyPayload().getMHDR().binarize(body);
+        phy.getMHDR().binarize(body);
         getClearPayload(_appKey).binarize(body);
 
         AesCmac aesCmac;
@@ -294,16 +290,16 @@ public class JoinAcceptPayload implements FRMPayload {
         return new Builder();
     }
 
-    private JoinAcceptPayload(MacPayload _macPayload, ClearPayload.Builder _payload, byte[] _appKey) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    private JoinAcceptPayload(PhyPayload _phy, ClearPayload.Builder _payload, byte[] _appKey) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         if (_payload == null) {
             throw new IllegalArgumentException("Missing payload");
         }
-        mac = _macPayload;
+        phy = _phy;
         payload = _payload.build();
         encryptedPayload = getEncryptedPayload(_appKey);
     }
 
-    public static class Builder implements FRMPayload.Builder {
+    public static class Builder implements Message.Builder {
 
         private byte[] appKey;
         private ClearPayload.Builder payload;
@@ -324,12 +320,12 @@ public class JoinAcceptPayload implements FRMPayload {
         }
 
         @Override
-        public JoinAcceptPayload build(MacPayload _macPayload) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
+        public JoinAcceptPayload build(PhyPayload _phy) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
             if (used) {
                 throw new RuntimeException("This builder has already been used");
             }
             used = true;
-            return new JoinAcceptPayload(_macPayload, payload, appKey);
+            return new JoinAcceptPayload(_phy, payload, appKey);
         }
 
     }
