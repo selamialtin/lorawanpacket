@@ -110,7 +110,7 @@ public class PhyPayload implements Binarizable {
         /**
          * @todo: mic ???
          */
-        mic = null;
+        mic = new byte[]{0, 0, 0, 0};
     }
 
     public static class Builder {
