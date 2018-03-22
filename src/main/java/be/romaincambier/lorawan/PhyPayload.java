@@ -42,6 +42,7 @@ public class PhyPayload implements Binarizable {
     private final MHDR mhdr;
     private final Message message;
     private final byte[] mic;
+    private byte[] appKey;
 
     private PhyPayload(ByteBuffer _raw) throws MalformedPacketException {
         _raw.order(ByteOrder.LITTLE_ENDIAN);
@@ -95,6 +96,14 @@ public class PhyPayload implements Binarizable {
         return new Builder();
     }
 
+    public byte[] getAppKey() {
+        return appKey;
+    }
+
+    public void setAppKey(byte[] appKey) {
+        this.appKey = appKey;
+    }
+
     private PhyPayload(MHDR.Builder _mhdr, MACPayload.Builder _macPayload) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         if (_mhdr == null) {
             throw new IllegalArgumentException("Missing mhdr");
@@ -110,7 +119,8 @@ public class PhyPayload implements Binarizable {
         /**
          * @todo: mic ???
          */
-        mic = new byte[]{0, 0, 0, 0};
+//        mic = new byte[]{0, 0, 0, 0};
+        mic = message.getMic();
     }
 
     public static class Builder {

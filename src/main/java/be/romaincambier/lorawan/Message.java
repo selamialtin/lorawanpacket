@@ -40,4 +40,7 @@ public interface Message extends Binarizable {
 
         public Message build(PhyPayload _phy) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException;
     }
+    
+    public byte[] getMic();
+    //public byte[] computeMic(byte[] _key) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException;
 }

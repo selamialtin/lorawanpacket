@@ -45,6 +45,7 @@ public class JoinRequestPayload implements Message {
     private final byte[] appEUI;
     private final byte[] devEUI;
     private final byte[] devNonce;
+    private byte[] mic;
 
     protected JoinRequestPayload(PhyPayload _phy, ByteBuffer _raw) throws MalformedPacketException {
         phy = _phy;
@@ -113,7 +114,7 @@ public class JoinRequestPayload implements Message {
         return new Builder();
     }
 
-    private JoinRequestPayload(PhyPayload _phy, byte[] _appEUI, byte[] _devEUI, byte[] _devNonce) {
+    private JoinRequestPayload(PhyPayload _phy, byte[] _appEUI, byte[] _devEUI, byte[] _devNonce) throws MalformedPacketException {
         if (_appEUI == null) {
             throw new IllegalArgumentException("Missing appEUI");
         }
@@ -136,6 +137,12 @@ public class JoinRequestPayload implements Message {
         appEUI = _appEUI;
         devEUI = _devEUI;
         devNonce = _devNonce;
+        mic = computeMic(phy.getAppKey());
+    }
+
+    @Override
+    public byte[] getMic() {
+        return this.mic;
     }
 
     public static class Builder implements Message.Builder {

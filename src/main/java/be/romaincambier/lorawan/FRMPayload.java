@@ -45,6 +45,7 @@ public class FRMPayload implements Binarizable {
 
     private final MACPayload mac;
     private final byte[] payload;
+    private byte[] mic;
 
     protected FRMPayload(MACPayload _mac, ByteBuffer _raw) {
         mac = _mac;
@@ -186,6 +187,10 @@ public class FRMPayload implements Binarizable {
     public byte[] getPayload() {
         return payload;
     }
+    
+    public byte[] getMic() {
+        return mic;
+    }
 
     @Override
     public int length() {
@@ -202,6 +207,7 @@ public class FRMPayload implements Binarizable {
         }
         mac = _macPayload;
         payload = encryptPayload(_payload, _nwkSKey, _appSKey);
+        mic = computeMic(_nwkSKey);
     }
 
     public static class Builder {

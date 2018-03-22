@@ -46,6 +46,7 @@ public class JoinAcceptPayload implements Message {
     private final PhyPayload phy;
     private final byte[] encryptedPayload;
     private ClearPayload payload;
+    private byte[] mic;
 
     protected JoinAcceptPayload(PhyPayload _phy, ByteBuffer _raw) throws MalformedPacketException {
         phy = _phy;
@@ -126,6 +127,11 @@ public class JoinAcceptPayload implements Message {
         } catch (NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException ex) {
             throw new RuntimeException("Could not compute AesCmac", ex);
         }
+    }
+
+    @Override
+    public byte[] getMic() {
+        return mic;
     }
 
     public static class ClearPayload implements Binarizable {
@@ -297,6 +303,7 @@ public class JoinAcceptPayload implements Message {
         phy = _phy;
         payload = _payload.build();
         encryptedPayload = getEncryptedPayload(_appKey);
+        mic = computeMic(phy.getAppKey());
     }
 
     public static class Builder implements Message.Builder {

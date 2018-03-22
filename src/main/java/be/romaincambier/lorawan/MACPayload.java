@@ -101,6 +101,12 @@ public class MACPayload implements Message, Binarizable {
         payload = _payload.build(this);
     }
 
+    @Override
+    public byte[] getMic() {
+        return this.payload.getMic();
+    }
+   
+    
     public static class Builder {
 
         private FHDR.Builder fhdr;
