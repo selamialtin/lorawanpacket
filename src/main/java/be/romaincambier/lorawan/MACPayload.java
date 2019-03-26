@@ -54,12 +54,12 @@ public class MACPayload implements Message, Binarizable {
     public void binarize(ByteBuffer _bb) throws MalformedPacketException {
         _bb.order(ByteOrder.LITTLE_ENDIAN);
         fhdr.binarize(_bb);
-        if (payload != null) {
+        if (payload != null && payload.hasPayload() ) {
             _bb.put(fPort);
             payload.binarize(_bb);
         }
     }
-
+    
     public FHDR getFhdr() {
         return fhdr;
     }
@@ -78,7 +78,7 @@ public class MACPayload implements Message, Binarizable {
 
     @Override
     public int length() {
-        return fhdr.length() + ((payload == null) ? 0 : (1 + payload.length()));
+        return fhdr.length() + ((payload == null || !payload.hasPayload()) ? 0 : (1 + payload.length()));
     }
 
     public static Builder newBuilder() {
@@ -93,20 +93,23 @@ public class MACPayload implements Message, Binarizable {
         if (_fPort == null) {
             throw new IllegalArgumentException("Missing fPort");
         }
-        if (_payload == null) {
-            throw new IllegalArgumentException("Missing payload");
-        }
+//        if (_payload == null) {
+//            throw new IllegalArgumentException("Missing payload");
+//        }
         fhdr = _fhdr.build(this);
         fPort = _fPort;
-        payload = _payload.build(this);
+        if (_payload != null) {
+            payload = _payload.build(this);
+        } else {
+            payload = null;
+        }
     }
 
     @Override
     public byte[] getMic() {
         return this.payload.getMic();
     }
-   
-    
+
     public static class Builder {
 
         private FHDR.Builder fhdr;

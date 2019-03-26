@@ -113,13 +113,6 @@ public class PhyPayload implements Binarizable {
         }
         mhdr = _mhdr.build(this);
         message = _macPayload.build(this);
-        /**
-         * @todo: Check mType here ?
-         */
-        /**
-         * @todo: mic ???
-         */
-//        mic = new byte[]{0, 0, 0, 0};
         mic = message.getMic();
     }
 

@@ -91,6 +91,10 @@ public class FRMPayload implements Binarizable {
         _bb.order(ByteOrder.LITTLE_ENDIAN);
         _bb.put(payload);
     }
+    
+    public boolean hasPayload() {
+        return payload.length > 0;
+    }
 
     public byte[] getClearPayLoad(byte[] _nwkSKey, byte[] _appSKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
         byte[] key;
@@ -202,11 +206,15 @@ public class FRMPayload implements Binarizable {
     }
 
     private FRMPayload(MACPayload _macPayload, byte[] _payload, byte[] _nwkSKey, byte[] _appSKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, MalformedPacketException {
-        if (_payload == null) {
-            throw new IllegalArgumentException("Missing payload");
-        }
+//        if (_payload == null) {
+//            throw new IllegalArgumentException("Missing payload");
+//        }
         mac = _macPayload;
-        payload = encryptPayload(_payload, _nwkSKey, _appSKey);
+        if (_payload != null && _payload.length > 0) {
+            payload = encryptPayload(_payload, _nwkSKey, _appSKey);
+        } else {
+            payload = new byte[0];
+        }
         mic = computeMic(_nwkSKey);
     }
 

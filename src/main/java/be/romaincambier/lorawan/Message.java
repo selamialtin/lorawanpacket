@@ -42,5 +42,6 @@ public interface Message extends Binarizable {
     }
     
     public byte[] getMic();
+    
     //public byte[] computeMic(byte[] _key) throws MalformedPacketException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException;
 }
